@@ -174,9 +174,8 @@ class Encryption extends Wrapper {
 	public function file_get_contents($path) {
 
 		$encryptionModule = $this->getEncryptionModule($path);
-		$info = $this->getCache()->get($path);
 
-		if ($encryptionModule || $info['encrypted'] === true) {
+		if ($encryptionModule) {
 			$handle = $this->fopen($path, "r");
 			if (!$handle) {
 				return false;
@@ -642,6 +641,12 @@ class Encryption extends Wrapper {
 		$rawHeader = $this->getHeader($path);
 		$header = $this->util->readHeader($rawHeader);
 		$encryptionModuleId = $this->util->getEncryptionModuleId($header);
+		$info = $this->getCache()->get($path);
+		if (empty($encryptionModuleId)
+			&& isset($info['encrypted']) && $info['encrypted'] === true
+		) {
+			$encryptionModuleId = 'OC_DEFAULT_MODULE';
+		}
 		if (!empty($encryptionModuleId)) {
 			try {
 				$encryptionModule = $this->encryptionManager->getEncryptionModule($encryptionModuleId);
