@@ -85,20 +85,17 @@
 			var path = '';
 			var lastArg = arguments[arguments.length - 1];
 			var trailingSlash = lastArg.charAt(lastArg.length - 1) === '/';
-			_.each(arguments, function(section) {
-				// trim leading slashes
-				while (section.charAt(0) === '/') {
-					section = section.substr(1);
+			var sections = [];
+			var i;
+			for (i = 0; i < arguments.length; i++) {
+				sections = sections.concat(arguments[i].split('/'));
+			}
+			for (i = 0; i < sections.length; i++) {
+				if (sections[i] !== '') {
+					path = path + '/' + sections[i];
 				}
-				// trim trailing slashes
-				while (section.charAt(section.length - 1) === '/') {
-					section = section.substr(0, section.length - 1);
-				}
+			}
 
-				// TODO: replace doubled slashes
-
-				path = path + '/' + section;
-			});
 			if (trailingSlash) {
 				// add it back
 				path += '/';
@@ -166,9 +163,12 @@
 				path = path.substr(0, path.length - 1);
 			}
 
+			path = decodeURIComponent(path);
+
 			var data = {
 				id: this._parseFileId(response.getProperty(Client.NS_OWNCLOUD, 'id').getParsedValue()),
-				path: decodeURIComponent(path),
+				path: OC.dirname(path),
+				name: OC.basename(path),
 				mtime: response.getProperty(Client.NS_DAV, 'getlastmodified').getParsedValue(),
 				etag: response.getProperty(Client.NS_DAV, 'getetag').getParsedValue(),
 				_props: response

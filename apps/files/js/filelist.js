@@ -210,7 +210,7 @@
 			this._selectedFiles = {};
 			this._selectionSummary = new OCA.Files.FileSummary();
 			// dummy root dir info
-			this.dirInfo = new OC.Files.FileInfo({path: '/'});
+			this.dirInfo = new OC.Files.FileInfo({});
 
 			this.fileSummary = this._createSummary();
 
@@ -571,7 +571,7 @@
 			return {
 				id: parseInt($el.attr('data-id'), 10),
 				name: $el.attr('data-file'),
-				mimetype: $el.attr('data-mime'),
+				mimeType: $el.attr('data-mime'),
 				type: $el.attr('data-type'),
 				size: parseInt($el.attr('data-size'), 10),
 				etag: $el.attr('data-etag'),
@@ -694,7 +694,8 @@
 		 * @return {string} icon URL
 		 */
 		_getIconUrl: function(fileInfo) {
-			if (fileInfo.mimeType === 'httpd/unix-directory') {
+			var mimeType = fileInfo.mimeType || fileInfo.mimetype;
+			if (mimeType === 'httpd/unix-directory') {
 				// use default folder icon
 				if (fileInfo.mountType === 'shared' || fileInfo.mountType === 'shared-root') {
 					return OC.MimeType.getIconUrl('dir-shared');
@@ -703,7 +704,7 @@
 				}
 				return OC.MimeType.getIconUrl('dir');
 			}
-			return OC.MimeType.getIconUrl(fileInfo.mimeType);
+			return OC.MimeType.getIconUrl(mimeType);
 		},
 
 		/**
@@ -1141,9 +1142,6 @@
 			this._selectionSummary.clear();
 			this.$el.find('.select-all').prop('checked', false);
 			this.showMask();
-			if (this._reloadCall) {
-				this._reloadCall.abort();
-			}
 			this._reloadCall = this.filesClient.getFolderContents(this.getCurrentDirectory(), {includeParent: true});
 			var callBack = this.reloadCallback.bind(this);
 			return this._reloadCall.then(callBack, callBack);
@@ -1403,6 +1401,9 @@
 		move: function(fileNames, targetPath) {
 			var self = this;
 			var dir = this.getCurrentDirectory();
+			if (dir.charAt(dir.length - 1) !== '/') {
+				dir += '/';
+			}
 			var target = OC.basename(targetPath);
 			if (!_.isArray(fileNames)) {
 				fileNames = [fileNames];
@@ -1417,10 +1418,10 @@
 					// not overwrite it
 					targetPath = targetPath + '/';
 				}
-				self.filesClient.move(dir + '/' + fileName, targetPath + '/' + fileName)
+				self.filesClient.move(dir + fileName, targetPath + fileName)
 					.done(function() {
 						// if still viewing the same directory
-						if (self.getCurrentDirectory() === dir) {
+						if (self.getCurrentDirectory() + '/' === dir) {
 							// recalculate folder size
 							var oldFile = self.findFileEl(target);
 							var newFile = self.findFileEl(fileName);
@@ -1635,12 +1636,12 @@
 							deferred.resolve(status, data);
 						})
 						.fail(function(status) {
-							OC.Notification.showTemporary(t('core', 'Could not create file "{file}"', {file: name}));
+							OC.Notification.showTemporary(t('files', 'Could not create file "{file}"', {file: name}));
 							deferred.reject(status);
 						});
 				})
 				.fail(function(status) {
-					OC.Notification.showTemporary(t('core', 'Could not create file "{file}"', {file: name}));
+					OC.Notification.showTemporary(t('files', 'Could not create file "{file}"', {file: name}));
 					deferred.reject(status);
 				});
 
@@ -1671,7 +1672,7 @@
 							deferred.resolve(status, data);
 						})
 						.fail(function() {
-							OC.Notification.showTemporary(t('core', 'Could not create folder "{dir}"', {dir: name}));
+							OC.Notification.showTemporary(t('files', 'Could not create folder "{dir}"', {dir: name}));
 							deferred.reject(createStatus);
 						});
 				})
@@ -1683,19 +1684,19 @@
 								// add it to the list, for completeness
 								self.add(data, {animate: true, scrollTo: true});
 								OC.Notification.showTemporary(
-									t('core', 'Could not create folder "{dir}" because it already exists', {dir: name})
+									t('files', 'Could not create folder "{dir}" because it already exists', {dir: name})
 								);
 								// still consider a failure
 								deferred.reject(createStatus, data);
 							})
 							.fail(function() {
 								OC.Notification.showTemporary(
-									t('core', 'Could not create folder "{dir}"', {dir: name})
+									t('files', 'Could not create folder "{dir}"', {dir: name})
 								);
 								deferred.reject(status);
 							});
 					} else {
-						OC.Notification.showTemporary(t('core', 'Could not create folder "{dir}"', {dir: name}));
+						OC.Notification.showTemporary(t('files', 'Could not create folder "{dir}"', {dir: name}));
 						deferred.reject(createStatus);
 					}
 				});
@@ -1722,26 +1723,25 @@
 		 */
 		do_delete:function(files, dir) {
 			var self = this;
-			var params;
 			if (files && files.substr) {
 				files=[files];
 			}
-			if (files) {
-				for (var i=0; i<files.length; i++) {
-					var deleteAction = this.findFileEl(files[i]).children("td.date").children(".action.delete");
-					deleteAction.removeClass('icon-delete').addClass('icon-loading-small');
-				}
+			if (!files) {
+				// no files passed, delete all in current dir
+				files = _.pluck(this.files, 'name');
 			}
+
+			for (var i=0; i<files.length; i++) {
+				var deleteAction = this.findFileEl(files[i]).children("td.date").children(".action.delete");
+				deleteAction.removeClass('icon-delete').addClass('icon-loading-small');
+			}
+
 			// Finish any existing actions
 			if (this.lastAction) {
 				this.lastAction();
 			}
 
 			dir = dir || this.getCurrentDirectory();
-			if (!files) {
-				// no files passed, delete all in current dir
-				files = _.pluck(this.files, 'name');
-			}
 
 			function removeFromList(file) {
 				var fileEl = self.remove(file, {updateSummary: false});
@@ -1997,11 +1997,7 @@
 		 */
 		_showPermissionDeniedNotification: function() {
 			var message = t('core', 'You don’t have permission to upload or create files here');
-			OC.Notification.show(message);
-			//hide notification after 10 sec
-			setTimeout(function() {
-				OC.Notification.hide();
-			}, 5000);
+			OC.Notification.showTemporary(message);
 		},
 
 		/**

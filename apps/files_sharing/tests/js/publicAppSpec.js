@@ -22,8 +22,6 @@
 describe('OCA.Sharing.PublicApp tests', function() {
 	var App = OCA.Sharing.PublicApp;
 	var $preview;
-	var fileListIn;
-	var fileListOut;
 
 	beforeEach(function() {
 		$preview = $('<div id="preview"></div>');
@@ -76,6 +74,14 @@ describe('OCA.Sharing.PublicApp tests', function() {
 		});
 		afterEach(function() {
 			App._initialized = false;
+		});
+
+		it('Uses public webdav endpoint', function() {
+			//App.fileList.reload();
+
+			expect(fakeServer.requests.length).toEqual(1);
+			expect(fakeServer.requests[0].method).toEqual('PROPFIND');
+			expect(fakeServer.requests[0].url).toEqual(OC.webroot + '/public.php/webdav/subdir');
 		});
 
 		describe('Download Url', function() {

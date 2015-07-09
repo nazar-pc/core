@@ -11,16 +11,22 @@
 (function(OC) {
 
 	var FileInfo = function(data) {
-		var path = data.path;
-		this.id = parseInt(data.id, 10);
-		this.path = OC.dirname(path);
-		this.name = OC.basename(path);
+		if (!_.isUndefined(data.id)) {
+			this.id = parseInt(data.id, 10);
+		}
+
+		// TODO: normalize path
+		this.path = data.path || '';
+		this.name = data.name;
+
 		this.mtime = data.mtime;
 		this.etag = data.etag;
 		this.permissions = data.permissions;
 		this.size = data.size;
-		this.mimeType = data.mimeType;
+		this.mimeType = data.mimeType || 'application/octet-stream';
 		this.mountType = data.mountType;
+		this.icon = data.icon;
+		this.isPreviewAvailable = data.isPreviewAvailable;
 		this._props = data._props;
 
 		if (data.type) {
@@ -29,7 +35,18 @@
 			this.type = 'dir';
 		} else {
 			this.type = 'file';
-			this.isPreviewAvailable = true;
+		}
+
+		if (!this.mimeType) {
+			if (this.type === 'dir') {
+				this.mimeType = 'httpd/unix-directory';
+			} else {
+				this.mimeType = 'application/octet-stream';
+			}
+		}
+
+		if (_.isUndefined(this.isPreviewAvailable)) {
+			this.isPreviewAvailable = (this.type === 'file' && !this.icon);
 		}
 	};
 
@@ -61,6 +78,15 @@
 		 * @type String
 		 */
 		mimetype: null,
+
+		/**
+		 * Icon URL.
+		 *
+		 * Can be used to override the mime type icon.
+		 *
+		 * @type String
+		 */
+		icon: null,
 
 		/**
 		 * File type. 'file'  for files, 'dir' for directories.

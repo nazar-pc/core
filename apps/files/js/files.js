@@ -141,13 +141,9 @@
 		 * @param {bool} [isDir=false] whether the given filename is a directory and might need a special URL
 		 */
 		getDownloadUrl: function(filename, dir, isDir) {
-			if (!_.isArray(filename)) {
-				filename = [filename];
-			}
-
-			if (filename.length === 1 && !isDir) {
+			if (!_.isArray(filename) && !isDir) {
 				var pathSections = dir.split('/');
-				pathSections.push(filename[0]);
+				pathSections.push(filename);
 				var encodedPath = '';
 				_.each(pathSections, function(section) {
 					if (section !== '') {
@@ -157,9 +153,13 @@
 				return OC.linkToRemoteBase('webdav') + encodedPath;
 			}
 
+			if (_.isArray(filename)) {
+				filename = JSON.stringify(filename);
+			}
+
 			var params = {
 				dir: dir,
-				files: JSON.stringify(filename)
+				files: filename
 			};
 			return this.getAjaxUrl('download', params);
 		},
